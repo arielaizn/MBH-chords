@@ -172,7 +172,6 @@ export function Studio({ email }: { email: string | null }) {
   const [picking, setPicking] = useState<false | "move" | "slash">(false);
   const [slashOnWord, setSlashOnWord] = useState(false);
   const [speechLang, setSpeechLang] = useState<"he-IL" | "en-US">("he-IL");
-  const speechBase = useRef("");
   const nextMsg = useRef(1);
   const nextItem = useRef(1);
   const logRef = useRef<HTMLDivElement>(null);
@@ -207,7 +206,8 @@ export function Studio({ email }: { email: string | null }) {
 
   const speech = useSpeechInput({
     lang: speechLang,
-    onTranscript: (done, interim) => setInput(joinSpeech(speechBase.current, done + interim)),
+    // התמלול מתווסף לסוף מה שכתוב כרגע, גם אם המשתמש הקליד בינתיים
+    onText: (text) => setInput((cur) => joinSpeech(cur, text)),
     onError: (m) => say("bot", m, true),
   });
 
@@ -507,14 +507,11 @@ export function Studio({ email }: { email: string | null }) {
 
   function toggleMic() {
     if (!speech.supported) {
-      say("bot", "הדפדפן הזה לא תומך בתמלול דיבור. נסה ב-Chrome, Edge או Safari.", true);
+      say("bot", "הדפדפן הזה לא תומך בהקלטה מהמיקרופון. נסה ב-Chrome, Edge או Safari.", true);
       return;
     }
     if (speech.listening) speech.stop();
-    else {
-      speechBase.current = input;
-      speech.start();
-    }
+    else void speech.start();
   }
 
   function setD(patch: Partial<Design>) {
@@ -771,30 +768,66 @@ export function Studio({ email }: { email: string | null }) {
             <label className="sr-only" htmlFor="chat-input">
               {waiting ? "מילות השיר" : editing ? "מה לשנות" : "שם השיר"}
             </label>
-            <textarea
-              id="chat-input"
-              rows={waiting ? 5 : 2}
-              value={input}
-              disabled={chatLocked}
-              onChange={(e) => {
-                if (speech.listening) speech.abort();
-                setInput(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !waiting) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-              placeholder={placeholder}
-              className="field resize-none"
-            />
-            {speech.listening && (
-              <p className="flex items-center gap-2 text-sm text-gold" role="status">
-                <span className="glow h-2 w-2 rounded-full bg-red-400" aria-hidden />
-                מקשיב… דבר, ולחץ שוב על המיקרופון כדי לסיים
-              </p>
-            )}
+            <div className="relative">
+              <textarea
+                id="chat-input"
+                rows={waiting ? 5 : 2}
+                value={input}
+                disabled={chatLocked}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !waiting) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+                placeholder={placeholder}
+                className={`field resize-none pb-12 ${speech.listening ? "field-live" : ""}`}
+              />
+              {/* המיקרופון יושב בתוך תיבת הכתיבה, כמו באפליקציות צ'אט */}
+              <div className="pointer-events-none absolute inset-x-2.5 bottom-2 flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2 ps-1.5 text-xs text-gold" role="status">
+                  {speech.listening && (
+                    <>
+                      <span className="mic-level" aria-hidden>
+                        {[0.55, 1, 0.8, 0.45].map((k, i) => (
+                          <i key={i} style={{ height: 4 + speech.level * 14 * k }} />
+                        ))}
+                      </span>
+                      <span className="truncate">
+                        מקליט {Math.floor(speech.seconds / 60)}:{String(speech.seconds % 60).padStart(2, "0")} · לחץ שוב כדי לסיים
+                      </span>
+                    </>
+                  )}
+                  {speech.transcribing && <span className="truncate">מתמלל…</span>}
+                </span>
+                <div className="pointer-events-auto flex items-center gap-1.5">
+                  {speech.supported && (
+                    <button
+                      onClick={() => setSpeechLang((l) => (l === "he-IL" ? "en-US" : "he-IL"))}
+                      disabled={chatLocked || speech.listening || speech.transcribing}
+                      aria-label="שפת התמלול"
+                      title={speechLang === "he-IL" ? "מתמלל בעברית. לחץ למעבר לאנגלית" : "מתמלל באנגלית. לחץ למעבר לעברית"}
+                      className="mic-lang"
+                    >
+                      {speechLang === "he-IL" ? "עב" : "EN"}
+                    </button>
+                  )}
+                  <button
+                    onClick={toggleMic}
+                    disabled={chatLocked || speech.transcribing}
+                    aria-pressed={speech.listening}
+                    aria-label={speech.listening ? "הפסק הקלטה" : "הקלט בקול ותמלל לטקסט"}
+                    title={speech.listening ? "הפסק הקלטה" : "הקלט בקול ותמלל לטקסט"}
+                    className={`mic-btn ${speech.listening ? "is-live" : ""}`}
+                  >
+                    <Icon d={ICONS.mic} size={17} />
+                  </button>
+                </div>
+              </div>
+            </div>
             {!waiting && !editing && (
               <label className="flex items-center gap-2 text-sm text-cream/65">
                 <input
@@ -823,31 +856,6 @@ export function Studio({ email }: { email: string | null }) {
                 <Icon d={ICONS.image} />
                 העלה תמונות
               </button>
-              <div className="flex shrink-0 items-stretch">
-                <button
-                  onClick={toggleMic}
-                  disabled={chatLocked}
-                  aria-pressed={speech.listening}
-                  aria-label={speech.listening ? "הפסק הקלטה" : "הקלט בקול ותמלל לטקסט"}
-                  title={speech.listening ? "הפסק הקלטה" : "הקלט בקול ותמלל לטקסט"}
-                  className={`btn flex items-center justify-center !px-3.5 ${
-                    speech.listening ? "btn-gold ring-2 ring-red-400/70" : "btn-ghost"
-                  } ${speech.supported ? "rounded-e-none" : ""}`}
-                >
-                  <Icon d={ICONS.mic} />
-                </button>
-                {speech.supported && (
-                  <button
-                    onClick={() => setSpeechLang((l) => (l === "he-IL" ? "en-US" : "he-IL"))}
-                    disabled={chatLocked || speech.listening}
-                    aria-label="שפת התמלול"
-                    title={speechLang === "he-IL" ? "מתמלל בעברית. לחץ למעבר לאנגלית" : "מתמלל באנגלית. לחץ למעבר לעברית"}
-                    className="btn btn-ghost !rounded-s-none !px-2.5 !text-xs"
-                  >
-                    {speechLang === "he-IL" ? "עב" : "EN"}
-                  </button>
-                )}
-              </div>
               <button
                 onClick={() => submit()}
                 disabled={chatLocked || !input.trim()}

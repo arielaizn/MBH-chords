@@ -394,3 +394,92 @@ body {
   background: rgba(212, 177, 118, 0.45);
   box-shadow: 0 0 0 3px rgba(212, 177, 118, 0.45);
 }
+
+/* ───────── מיקרופון בתוך תיבת הכתיבה ───────── */
+.field-live {
+  border-color: rgba(248, 113, 113, 0.6);
+}
+.mic-btn {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 177, 118, 0.32);
+  background: rgba(212, 177, 118, 0.1);
+  color: var(--gold);
+  cursor: pointer;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease);
+}
+.mic-btn:hover:not(:disabled) {
+  background: rgba(212, 177, 118, 0.22);
+  transform: translateY(-1px);
+}
+.mic-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.mic-btn.is-live {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+  animation: micPulse 1.6s ease-out infinite;
+}
+.mic-lang {
+  height: 1.75rem;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 177, 118, 0.25);
+  color: rgba(250, 247, 240, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+}
+.mic-lang:hover:not(:disabled) {
+  background: rgba(212, 177, 118, 0.14);
+  color: var(--cream);
+}
+.mic-lang:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.mic-dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #f87171;
+  animation: micDot 1s ease-in-out infinite;
+}
+@keyframes micPulse {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+@keyframes micDot {
+  50% { opacity: 0.3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mic-btn.is-live,
+  .mic-dot {
+    animation: none;
+  }
+}
+
+/* מד עוצמה בזמן הקלטה */
+.mic-level {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+}
+.mic-level i {
+  display: block;
+  width: 3px;
+  border-radius: 2px;
+  background: #f87171;
+  transition: height 0.09s linear;
+}
